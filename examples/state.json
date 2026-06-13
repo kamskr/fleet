@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sessions": [
+    {
+      "id": "abcd1234",
+      "display_name": "Fleet MVP",
+      "tmux_session_name": "fleet-fleet-mvp-abcd1234",
+      "directory": "/Users/kamskr/Files/Fleet",
+      "command": "opencode",
+      "pinned": true,
+      "created_at": "2026-06-13T12:00:00Z",
+      "updated_at": "2026-06-13T12:00:00Z",
+      "status": "running",
+      "last_response": "Ready for your next command",
+      "last_pane_hash": "example-hash"
+    }
+  ]
+}

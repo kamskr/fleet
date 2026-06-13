@@ -1,0 +1,14 @@
+/fleet
+.DS_Store
+
+# Local/editor state
+.idea/
+.vscode/
+
+# Node dependencies used by local agent tooling
+node_modules/
+.opencode/node_modules/
+
+# Go build/test artifacts
+*.test
+coverage.out

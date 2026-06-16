@@ -43,6 +43,7 @@ Integration tests, if added, must use a non-default tmux socket and clean up the
 - Pinned sessions first, always.
 - Directory and latest captured response visible in dashboard; raw status belongs in details/debug contexts.
 - Show activity freshness from pane-output changes so users can tell whether child work is still moving.
+- Grouped-by-directory view should use directory section headers instead of repeating a directory column on every row.
 - Keep footer help accurate when keybindings change.
 - Avoid blocking work directly in Bubble Tea `Update`; use commands where practical.
 - Attaching to a child session should suspend Fleet and return to the Fleet dashboard after detach, not drop users back to shell.

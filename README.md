@@ -26,7 +26,7 @@ Fleet is early software. The core loop works, but the public API and storage for
 Today Fleet supports:
 
 - A Bubble Tea dashboard for session management.
-- Creating sessions with any command, defaulting to `opencode`.
+- Creating default-shell sessions you can steer manually.
 - Attaching to running sessions and returning to the dashboard after detach.
 - Pinning, renaming, filtering, grouping, killing, and removing sessions.
 - Persisted session metadata in a local JSON state file.
@@ -61,16 +61,13 @@ Open the dashboard:
 fleet
 ```
 
-Create a session:
+Create and attach to a session:
 
 ```text
 n
 ```
 
-Fleet will ask for:
-
-- Directory: defaults to the current directory. The display name defaults to the directory basename.
-- Command: what to run, for example `opencode`, `claude`, `bash`, or any custom command.
+Fleet opens a new tmux session in the current directory with your default shell. From there, run whatever you want: `opencode`, `claude`, tests, a debugger, or plain shell commands. The display name defaults to the directory basename.
 
 Attach to a running session with `enter`. When you are inside the child tmux session, press `Ctrl+-` or `Ctrl+g` to detach back to Fleet.
 
@@ -78,7 +75,7 @@ Attach to a running session with `enter`. When you are inside the child tmux ses
 
 ```sh
 fleet                  # open TUI dashboard
-fleet new              # create a session with prompts
+fleet new              # create a default-shell session in the current directory
 fleet list             # print known sessions
 fleet attach <id-name> # attach to a Fleet tmux session
 fleet kill <id-name>   # kill and remove a session
@@ -97,13 +94,13 @@ d        change selected session directory
 r        rename selected session
 x        kill running session, or remove dead session
 /        search/filter sessions
-g        toggle grouping by directory
+g        toggle flat view / grouped by directory
 q        quit
 ```
 
 In directory prompts, press `Ctrl+F` to open `fzf` with directory suggestions. If `fzf` is not installed, type the path manually.
 
-Pinned sessions always sort first. The dashboard shows each session's friendly display name, activity freshness, directory, and latest captured pane output. Activity freshness updates when the captured pane output changes, so you can tell whether child work is still moving. Raw tmux names and raw status stay in details/debug contexts.
+Pinned sessions always sort first. In flat view, the dashboard shows each session's friendly display name, activity freshness, directory, and latest captured pane output. In grouped view, sessions are separated by directory headers and the per-row directory column is hidden. Activity freshness updates when the captured pane output changes, so you can tell whether child work is still moving. Raw tmux names and raw status stay in details/debug contexts.
 
 ## How Fleet Uses tmux
 
@@ -188,4 +185,4 @@ Important invariants:
 
 ## License
 
-License not selected yet.
+MIT — see `LICENSE`.

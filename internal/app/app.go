@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,7 +39,7 @@ func (a App) Sessions(ctx context.Context) ([]session.Session, error) {
 			sessions[i].LastResponse = "capture unavailable"
 			continue
 		}
-		sessions[i].LastResponse = lastPaneLine(pane)
+		sessions[i].LastResponse = lastPanePreview(pane)
 		hash := paneHash(pane)
 		if sessions[i].LastPaneHash != hash {
 			now := time.Now().UTC()
@@ -59,15 +60,61 @@ func paneHash(pane string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func lastPaneLine(pane string) string {
-	lines := strings.Split(pane, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line != "" {
-			return line
+func lastPanePreview(pane string) string {
+	lines := strings.Split(strings.ReplaceAll(stripANSI(pane), "\r\n", "\n"), "\n")
+	for i := len(lines) - 1; i >= 0; {
+		for i >= 0 && strings.TrimSpace(lines[i]) == "" {
+			i--
+		}
+		if i < 0 {
+			break
+		}
+		end := i + 1
+		for i >= 0 && strings.TrimSpace(lines[i]) != "" {
+			i--
+		}
+		preview := previewBlock(lines[i+1 : end])
+		if preview != "" && !looksLikePrompt(preview) {
+			return preview
 		}
 	}
 	return "waiting for output"
+}
+
+func previewBlock(lines []string) string {
+	words := []string{}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		line = strings.Trim(line, "│┃║┆┊| ")
+		if line == "" {
+			continue
+		}
+		words = append(words, strings.Fields(line)...)
+	}
+	if len(words) == 0 {
+		return ""
+	}
+	if len(words) > 18 {
+		words = append(words[:18], "…")
+	}
+	return strings.Join(words, " ")
+}
+
+func looksLikePrompt(s string) bool {
+	if strings.Contains(s, " C-- back ") || strings.HasPrefix(s, "Fleet fleet-") {
+		return true
+	}
+	fields := strings.Fields(s)
+	if len(fields) <= 6 && (strings.HasPrefix(s, "~/") || strings.HasPrefix(s, "/") || strings.HasPrefix(s, "$ ") || strings.HasPrefix(s, "> ") || strings.HasPrefix(s, "❯ ")) {
+		return true
+	}
+	return false
+}
+
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+func stripANSI(s string) string {
+	return ansiRE.ReplaceAllString(s, "")
 }
 
 func (a App) Create(ctx context.Context, displayName, dir, command string) (session.Session, error) {
@@ -81,9 +128,6 @@ func (a App) Create(ctx context.Context, displayName, dir, command string) (sess
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return session.Session{}, err
-	}
-	if strings.TrimSpace(command) == "" {
-		command = "bash"
 	}
 	if strings.TrimSpace(displayName) == "" {
 		displayName = filepath.Base(abs)

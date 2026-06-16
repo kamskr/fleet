@@ -12,6 +12,7 @@ UI requirements:
 - Show display name, directory, and latest captured response in the list; show raw status in details/debug contexts.
 - Show activity freshness based on pane-output changes so users can tell whether child work is still moving.
 - Details panel shows selected session, including raw tmux name.
+- Grouped-by-directory view should use directory section headers and hide the per-row directory column.
 - Footer help must match implemented keybindings.
 - Prefer Bubble Tea commands for side effects.
 - Do not expose raw tmux names as the main identity; use friendly display names.

@@ -24,9 +24,6 @@ type mode int
 const (
 	modeNormal mode = iota
 	modeFilter
-	modeNewName
-	modeNewDir
-	modeNewCmd
 	modeRename
 	modeChangeDir
 	modeConfirmKill
@@ -60,9 +57,6 @@ type model struct {
 	mode     mode
 	input    textinput.Model
 	err      string
-	newName  string
-	newDir   string
-	newCmd   string
 	width    int
 	height   int
 }
@@ -107,7 +101,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg.Error()
 	case dirSelectedMsg:
-		if string(msg) != "" && (m.mode == modeNewDir || m.mode == modeChangeDir) {
+		if string(msg) != "" && m.mode == modeChangeDir {
 			m.input.SetValue(string(msg))
 			m.input.CursorEnd()
 		}
@@ -142,11 +136,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.prepareAttach(s.TmuxSessionName)
 			}
 		case "n":
-			cwd := "."
-			if abs, err := filepath.Abs(cwd); err == nil {
-				cwd = abs
-			}
-			m.startInput(modeNewDir, "Directory", cwd)
+			return m, m.createAndAttach()
 		case "/":
 			m.startInput(modeFilter, "Filter", m.filter)
 		case "g":
@@ -198,7 +188,7 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeNormal
 		return m, nil
 	}
-	if msg.String() == "ctrl+f" && (m.mode == modeNewDir || m.mode == modeChangeDir) {
+	if msg.String() == "ctrl+f" && m.mode == modeChangeDir {
 		return m, fzfDirCmd(m.input.Value())
 	}
 	if msg.String() == "enter" {
@@ -208,13 +198,6 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filter = v
 			m.cursor = 0
 			m.mode = modeNormal
-		case modeNewDir:
-			m.newDir = v
-			m.startInput(modeNewCmd, "Command", "opencode")
-		case modeNewCmd:
-			m.newCmd = v
-			m.mode = modeNormal
-			return m, m.wrap(func() error { _, err := m.app.Create(context.Background(), "", m.newDir, m.newCmd); return err })
 		case modeRename:
 			if s, ok := m.selected(); ok {
 				m.mode = modeNormal
@@ -231,6 +214,16 @@ func (m model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
+}
+
+func (m model) createAndAttach() tea.Cmd {
+	return func() tea.Msg {
+		s, err := m.app.Create(context.Background(), "", "", "")
+		if err != nil {
+			return errMsg(err)
+		}
+		return attachReadyMsg(s.TmuxSessionName)
+	}
 }
 
 func (m *model) startInput(md mode, placeholder, value string) {
@@ -360,7 +353,7 @@ func (m model) View() string {
 			return m.overlay(body+"Kill selected session and remove it from Fleet? y/N\n", width)
 		}
 		extra := "Esc cancels"
-		if m.mode == modeNewDir || m.mode == modeChangeDir {
+		if m.mode == modeChangeDir {
 			extra = "Ctrl+F opens fzf • Esc cancels"
 		}
 		return m.overlay(body+promptFor(m.mode)+"\n"+m.input.View()+"\n\n"+muted(extra), width)
@@ -379,26 +372,51 @@ func (m model) View() string {
 func (m model) renderList(vis []session.Session) string {
 	var b strings.Builder
 	lastGroup := ""
+	if m.grouped {
+		for i, s := range vis {
+			group := s.Directory
+			if s.Pinned {
+				group = "Pinned"
+			}
+			if group != lastGroup {
+				if b.Len() > 0 {
+					b.WriteString("\n\n")
+				}
+				lastGroup = group
+				b.WriteString(groupHeader(group) + "\n\n")
+			}
+			b.WriteString(m.renderGroupedSessionRow(i, s) + "\n")
+		}
+		return b.String()
+	}
 	for i, s := range vis {
-		if m.grouped && !s.Pinned && s.Directory != lastGroup {
-			lastGroup = s.Directory
-			b.WriteString(muted("\n" + lastGroup + "\n"))
-		}
-		cursor := "  "
-		if i == m.cursor {
-			cursor = "▸ "
-		}
-		pin := " "
-		if s.Pinned {
-			pin = "★"
-		}
-		line := fmt.Sprintf("%s%s %-20s %-14s %-26s %s", cursor, pin, trim(s.DisplayName, 20), activityLabel(s), trim(s.Directory, 26), trim(responsePreview(s), 42))
-		if i == m.cursor {
-			line = lipgloss.NewStyle().Foreground(ctpPink).Bold(true).Render(line)
-		}
-		b.WriteString(line + "\n")
+		b.WriteString(m.renderSessionRow(i, s) + "\n")
 	}
 	return b.String()
+}
+
+func (m model) renderSessionRow(i int, s session.Session) string {
+	cursor := "  "
+	if i == m.cursor {
+		cursor = "▸ "
+	}
+	pin := " "
+	if s.Pinned {
+		pin = "★"
+	}
+	line := fmt.Sprintf("%s%s%s    %s", cursor, pin, trim(s.DisplayName, 24), trim(responsePreview(s), 78))
+	if i == m.cursor {
+		line = lipgloss.NewStyle().Foreground(ctpPink).Bold(true).Render(line)
+	}
+	return line
+}
+
+func (m model) renderGroupedSessionRow(i int, s session.Session) string {
+	return m.renderSessionRow(i, s)
+}
+
+func groupHeader(s string) string {
+	return lipgloss.NewStyle().Foreground(ctpBlue).Bold(true).Render("▾ " + s)
 }
 
 func (m model) overlay(s string, width int) string {
@@ -427,7 +445,7 @@ func (m model) renderDetails() string {
 		return ""
 	}
 	return lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(ctpSurface1).Padding(0, 1).Render(
-		fmt.Sprintf("%s\nid: %s\ntmux: %s\nstatus: %s\nactivity: %s\ndir: %s\ncmd: %s\nlast: %s\npinned: %t\ncreated: %s", trim(s.DisplayName, 48), s.ID, trim(s.TmuxSessionName, 56), s.Status, activityLabel(s), trim(s.Directory, 64), trim(s.Command, 64), trim(responsePreview(s), 72), s.Pinned, s.CreatedAt.Format("2006-01-02 15:04")))
+		fmt.Sprintf("%s\nid: %s\ntmux: %s\nstatus: %s\nactivity: %s\ndir: %s\ncmd: %s\nlast: %s\npinned: %t\ncreated: %s", trim(s.DisplayName, 48), s.ID, trim(s.TmuxSessionName, 56), s.Status, activityLabel(s), trim(s.Directory, 64), trim(commandLabel(s), 64), trim(responsePreview(s), 72), s.Pinned, s.CreatedAt.Format("2006-01-02 15:04")))
 }
 
 func (m model) visible() []session.Session {
@@ -472,12 +490,6 @@ func promptFor(md mode) string {
 	switch md {
 	case modeFilter:
 		return "Filter sessions"
-	case modeNewName:
-		return "New session: display name"
-	case modeNewDir:
-		return "New session: directory (defaults to current; name comes from path)"
-	case modeNewCmd:
-		return "New session: command (opencode, claude, bash, custom)"
 	case modeRename:
 		return "Rename session"
 	case modeChangeDir:
@@ -487,15 +499,35 @@ func promptFor(md mode) string {
 	}
 }
 func muted(s string) string { return lipgloss.NewStyle().Foreground(ctpSubtext0).Render(s) }
-func responsePreview(s session.Session) string {
-	if strings.TrimSpace(s.LastResponse) != "" {
-		return s.LastResponse
+func commandLabel(s session.Session) string {
+	if strings.TrimSpace(s.Command) == "" {
+		return "default shell"
 	}
-	if s.Status == session.StatusRunning {
+	return s.Command
+}
+func responsePreview(s session.Session) string {
+	if s.Status != session.StatusRunning {
+		if s.Status == session.StatusDead {
+			return "stopped"
+		}
+		return string(s.Status)
+	}
+	activity := activityLabel(s)
+	last := strings.TrimSpace(s.LastResponse)
+	if last == "" || last == "waiting for output" || looksLikeShellPrompt(last) {
 		return "waiting for output"
 	}
-	return string(s.Status)
+	return activity + ": " + last
 }
+
+func looksLikeShellPrompt(s string) bool {
+	fields := strings.Fields(s)
+	if len(fields) > 6 {
+		return false
+	}
+	return strings.HasPrefix(s, "~/") || strings.HasPrefix(s, "/") || strings.HasPrefix(s, "$ ") || strings.HasPrefix(s, "> ") || strings.HasPrefix(s, "❯ ")
+}
+
 func activityLabel(s session.Session) string {
 	if s.Status != session.StatusRunning {
 		return "stopped"
@@ -505,7 +537,7 @@ func activityLabel(s session.Session) string {
 	}
 	d := time.Since(*s.LastActivityAt)
 	if d < 15*time.Second {
-		return "active now"
+		return "working"
 	}
 	if d < time.Minute {
 		return "idle " + fmt.Sprintf("%ds", int(d.Seconds()))

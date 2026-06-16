@@ -74,6 +74,23 @@ func TestCommandConstructionUsesFleetSocket(t *testing.T) {
 	}
 }
 
+func TestNewSessionWithoutCommandOpensDefaultShell(t *testing.T) {
+	f := &fakeRunner{}
+	c := &Client{Socket: "fleet", Runner: f}
+
+	if err := c.NewSession(context.Background(), "fleet-shell-123", "/tmp", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"-L", "fleet", "new-session", "-d", "-s", "fleet-shell-123", "-c", "/tmp"}
+	if len(f.calls) == 0 {
+		t.Fatal("expected tmux calls")
+	}
+	if !reflect.DeepEqual(f.calls[0].args, want) {
+		t.Fatalf("new-session args\n got %#v\nwant %#v", f.calls[0].args, want)
+	}
+}
+
 func TestRejectsEmptySocketAndNonFleetSessionName(t *testing.T) {
 	if _, err := New(""); err == nil {
 		t.Fatal("expected empty socket error")

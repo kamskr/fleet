@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -39,11 +38,7 @@ func run() error {
 	}
 	switch args[0] {
 	case "new":
-		name, dir, cmd, err := promptNew()
-		if err != nil {
-			return err
-		}
-		s, err := a.Create(ctx, name, dir, cmd)
+		s, err := a.Create(ctx, "", "", "")
 		if err != nil {
 			return err
 		}
@@ -58,7 +53,7 @@ func run() error {
 			if s.Pinned {
 				pin = "*"
 			}
-			fmt.Printf("%s %-8s %-8s %-24s %s — %s\n", pin, s.ID, s.Status, s.DisplayName, s.Directory, s.Command)
+			fmt.Printf("%s %-8s %-8s %-24s %s — %s\n", pin, s.ID, s.Status, s.DisplayName, s.Directory, commandLabel(s.Command))
 		}
 	case "attach":
 		if len(args) < 2 {
@@ -82,34 +77,11 @@ func run() error {
 	return nil
 }
 
-func promptNew() (string, string, string, error) {
-	r := bufio.NewReader(os.Stdin)
-	read := func(label, def string) (string, error) {
-		if def != "" {
-			fmt.Printf("%s [%s]: ", label, def)
-		} else {
-			fmt.Printf("%s: ", label)
-		}
-		v, err := r.ReadString('\n')
-		if err != nil {
-			return "", err
-		}
-		v = strings.TrimSpace(v)
-		if v == "" {
-			v = def
-		}
-		return v, nil
+func commandLabel(command string) string {
+	if strings.TrimSpace(command) == "" {
+		return "default shell"
 	}
-	cwd, _ := os.Getwd()
-	dir, err := read("Directory", cwd)
-	if err != nil {
-		return "", "", "", err
-	}
-	cmd, err := read("Command (opencode/claude/bash/custom)", "opencode")
-	if err != nil {
-		return "", "", "", err
-	}
-	return filepath.Base(dir), dir, cmd, nil
+	return command
 }
 
 func doctor(ctx context.Context, cfg config.Config, tc *tmux.Client) error {

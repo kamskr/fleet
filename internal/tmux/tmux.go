@@ -51,7 +51,10 @@ func (c *Client) NewSession(ctx context.Context, name, dir, command string) erro
 	if !strings.HasPrefix(name, "fleet-") {
 		return fmt.Errorf("tmux session name %q must start with fleet-", name)
 	}
-	args := c.args("new-session", "-d", "-s", name, "-c", dir, command)
+	args := c.args("new-session", "-d", "-s", name, "-c", dir)
+	if strings.TrimSpace(command) != "" {
+		args = append(args, command)
+	}
 	if out, err := c.Runner.Run(ctx, "tmux", args...); err != nil {
 		return fmt.Errorf("tmux new-session failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}

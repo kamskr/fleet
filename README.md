@@ -12,7 +12,7 @@ Fleet exists to make that workflow boring:
 
 - Start an AI coding session in the right directory.
 - See all running sessions in one terminal UI.
-- Preview the latest output without attaching.
+- Preview the latest output and selected session terminal snapshot without attaching.
 - Attach when you need to steer the work.
 - Detach back to the dashboard with one key.
 - Keep Fleet-managed tmux sessions separate from your regular tmux setup.
@@ -100,7 +100,7 @@ q        quit
 
 In directory prompts, press `Ctrl+F` to open `fzf` with directory suggestions. If `fzf` is not installed, type the path manually.
 
-Pinned sessions always sort first. In flat view, the dashboard shows each session's friendly display name, activity freshness, directory, and latest captured pane output. In grouped view, sessions are separated by directory headers and the per-row directory column is hidden. Activity freshness updates when the captured pane output changes, so you can tell whether child work is still moving. Raw tmux names and raw status stay in details/debug contexts.
+Pinned sessions always sort first. In flat view, the dashboard shows each session's friendly display name, activity freshness, directory, and latest captured pane output. The selected session details include a bounded terminal preview from the tmux pane, matching what you will attach to with `enter`. The dashboard refreshes periodically so activity and previews stay current. In grouped view, sessions are separated by directory headers and the per-row directory column is hidden. Activity freshness updates when the captured pane output changes, so you can tell whether child work is still moving. Raw tmux names and raw status stay in details/debug contexts.
 
 ## How Fleet Uses tmux
 

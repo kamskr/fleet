@@ -168,6 +168,33 @@ func TestResponsePreviewShowsSessionState(t *testing.T) {
 	}
 }
 
+func TestRenderDetailsShowsTerminalPreview(t *testing.T) {
+	m := model{width: 120, height: 36, sessions: []session.Session{{
+		ID:              "abc123",
+		DisplayName:     "orb-mobile",
+		TmuxSessionName: "fleet-orb-mobile-abc123",
+		Directory:       "/Users/kamskr/Files/orb/orb-mobile",
+		Status:          session.StatusRunning,
+		PanePreview:     "opencode\nworking: editing files\n~/Files/orb/orb-mobile:fix/free- Yolo",
+	}}}
+
+	out := stripANSI(m.renderDetails())
+	if !strings.Contains(out, "terminal preview") {
+		t.Fatalf("details should label terminal preview, got:\n%s", out)
+	}
+	if !strings.Contains(out, "working: editing files") || !strings.Contains(out, "~/Files/orb/orb-mobile:fix/free- Yolo") {
+		t.Fatalf("details should include pane contents, got:\n%s", out)
+	}
+}
+
+func TestTerminalPreviewBoundsToRecentLinesAndWidth(t *testing.T) {
+	got := terminalPreview("one\ntwo\nthree is too long", 10, 2)
+	want := "two\nthree is …"
+	if got != want {
+		t.Fatalf("terminalPreview() = %q, want %q", got, want)
+	}
+}
+
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func stripANSI(s string) string {

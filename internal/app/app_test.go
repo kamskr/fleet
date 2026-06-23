@@ -35,3 +35,13 @@ func TestLastPanePreviewFallsBackWhenOnlyPrompt(t *testing.T) {
 		t.Fatalf("lastPanePreview() = %q, want waiting for output", got)
 	}
 }
+
+func TestTerminalPanePreviewKeepsActualRecentTerminal(t *testing.T) {
+	pane := "\x1b[31mold\x1b[0m\n\nassistant response\n~/Files/Fleet:main  /status\n"
+
+	got := terminalPanePreview(pane)
+	want := "old\n\nassistant response\n~/Files/Fleet:main  /status"
+	if got != want {
+		t.Fatalf("terminalPanePreview() = %q, want %q", got, want)
+	}
+}

@@ -33,6 +33,7 @@ type loadedMsg []session.Session
 type errMsg error
 type dirSelectedMsg string
 type attachReadyMsg string
+type refreshMsg time.Time
 
 const (
 	ctpBase     = lipgloss.Color("#1e1e2e")
@@ -81,7 +82,11 @@ func newModel(a app.App) model {
 	return model{app: a, input: in}
 }
 
-func (m model) Init() tea.Cmd { return m.load }
+func (m model) Init() tea.Cmd { return tea.Batch(m.load, refreshTick()) }
+
+func refreshTick() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg { return refreshMsg(t) })
+}
 
 func (m model) load() tea.Msg {
 	s, err := m.app.Sessions(context.Background())
@@ -98,6 +103,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor >= len(m.visible()) {
 			m.cursor = max(0, len(m.visible())-1)
 		}
+	case refreshMsg:
+		return m, tea.Batch(m.load, refreshTick())
 	case errMsg:
 		m.err = msg.Error()
 	case dirSelectedMsg:
@@ -444,8 +451,46 @@ func (m model) renderDetails() string {
 	if !ok {
 		return ""
 	}
-	return lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(ctpSurface1).Padding(0, 1).Render(
-		fmt.Sprintf("%s\nid: %s\ntmux: %s\nstatus: %s\nactivity: %s\ndir: %s\ncmd: %s\nlast: %s\npinned: %t\ncreated: %s", trim(s.DisplayName, 48), s.ID, trim(s.TmuxSessionName, 56), s.Status, activityLabel(s), trim(s.Directory, 64), trim(commandLabel(s), 64), trim(responsePreview(s), 72), s.Pinned, s.CreatedAt.Format("2006-01-02 15:04")))
+	width := min(max(68, m.width-14), 110)
+	if m.width <= 0 {
+		width = 96
+	}
+	previewHeight := 10
+	if m.height > 0 {
+		previewHeight = min(max(6, m.height/3), 16)
+	}
+	meta := fmt.Sprintf("%s\nid: %s\ntmux: %s\nstatus: %s\nactivity: %s\ndir: %s\ncmd: %s\nlast: %s\npinned: %t\ncreated: %s", trim(s.DisplayName, 48), s.ID, trim(s.TmuxSessionName, 56), s.Status, activityLabel(s), trim(s.Directory, 64), trim(commandLabel(s), 64), trim(responsePreview(s), 72), s.Pinned, s.CreatedAt.Format("2006-01-02 15:04"))
+	content := meta
+	if p := terminalPreview(s.PanePreview, width-4, previewHeight); p != "" {
+		content += "\n\n" + muted("terminal preview") + "\n" + p
+	}
+	return lipgloss.NewStyle().Width(width).Border(lipgloss.NormalBorder()).BorderForeground(ctpSurface1).Padding(0, 1).Render(content)
+}
+
+func terminalPreview(pane string, width, height int) string {
+	lines := strings.Split(strings.ReplaceAll(pane, "\r\n", "\n"), "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[0]) == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	if height <= 0 {
+		height = 10
+	}
+	if len(lines) > height {
+		lines = lines[len(lines)-height:]
+	}
+	if width <= 0 {
+		width = 72
+	}
+	for i := range lines {
+		lines[i] = trim(lines[i], width)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (m model) visible() []session.Session {

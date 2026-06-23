@@ -31,6 +31,7 @@ type Session struct {
 	Status          Status     `json:"status"`
 	LastResponse    string     `json:"last_response,omitempty"`
 	LastPaneHash    string     `json:"last_pane_hash,omitempty"`
+	PanePreview     string     `json:"-"`
 }
 
 func New(displayName, dir, command string) Session {

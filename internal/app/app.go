@@ -40,6 +40,7 @@ func (a App) Sessions(ctx context.Context) ([]session.Session, error) {
 			continue
 		}
 		sessions[i].LastResponse = lastPanePreview(pane)
+		sessions[i].PanePreview = terminalPanePreview(pane)
 		hash := paneHash(pane)
 		if sessions[i].LastPaneHash != hash {
 			now := time.Now().UTC()
@@ -58,6 +59,20 @@ func (a App) Sessions(ctx context.Context) ([]session.Session, error) {
 func paneHash(pane string) string {
 	sum := sha256.Sum256([]byte(pane))
 	return hex.EncodeToString(sum[:])
+}
+
+func terminalPanePreview(pane string) string {
+	lines := strings.Split(strings.ReplaceAll(stripANSI(pane), "\r\n", "\n"), "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[0]) == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) > 80 {
+		lines = lines[len(lines)-80:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func lastPanePreview(pane string) string {
